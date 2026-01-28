@@ -489,7 +489,7 @@ fn downloadFile(allocator: std.mem.Allocator, target_file: []const u8, url: []co
 fn unzipFile(allocator: std.mem.Allocator, file: []const u8, target_directory: []const u8) !void {
     var child = switch (builtin.os.tag) {
         .windows => std.process.Child.init(
-            &.{ "powershell", "-Command", "Expand-Archive -Force -Path", file, "-DestinationPath", target_directory },
+            &.{ "powershell", "-Command", "Microsoft.PowerShell.Archive\\Expand-Archive -Force -Path", file, "-DestinationPath", target_directory },
             allocator,
         ),
         else => std.process.Child.init(
