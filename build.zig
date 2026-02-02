@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) !void {
     // running `zig build`).
     b.installArtifact(lib);
 
-    const module = b.addModule("protobuf", .{
+    _ = b.addModule("protobuf", .{
         .root_source_file = b.path("src/protobuf.zig"),
         .target = target,
         .optimize = optimize,
@@ -54,134 +54,28 @@ pub fn build(b: *std.Build) !void {
     // step when running `zig build`).
     b.installArtifact(exe);
 
-    const test_step = b.step("test", "Run library tests");
-
-    const tests = [_]*std.Build.Step.Compile{
-        b.addTest(.{ .name = "protobuf", .root_module = module }),
-        b.addTest(.{
-            .name = "bootstrap",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("bootstrapped-generator/main.zig"),
-                .target = target,
-                .optimize = optimize,
-            }),
-        }),
-        b.addTest(.{
-            .name = "tests",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tests/tests.zig"),
-                .target = target,
-                .optimize = optimize,
-            }),
-        }),
-        b.addTest(.{
-            .name = "alltypes",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tests/alltypes.zig"),
-                .target = target,
-                .optimize = optimize,
-            }),
-        }),
-        b.addTest(.{
-            .name = "integration",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tests/integration.zig"),
-                .target = target,
-                .optimize = optimize,
-            }),
-        }),
-        b.addTest(.{
-            .name = "fixedsizes",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tests/tests_fixedsizes.zig"),
-                .target = target,
-                .optimize = optimize,
-            }),
-        }),
-        b.addTest(.{
-            .name = "varints",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tests/tests_varints.zig"),
-                .target = target,
-                .optimize = optimize,
-            }),
-        }),
-        b.addTest(.{
-            .name = "json",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("tests/tests_json.zig"),
-                .target = target,
-                .optimize = optimize,
-            }),
-        }),
-        b.addTest(.{
-            .name = "FullName",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("bootstrapped-generator/FullName.zig"),
-                .target = target,
-                .optimize = optimize,
-            }),
-        }),
-    };
-
-    const convertStep = RunProtocStep.create(b, b, target, .{
-        .destination_directory = b.path("tests/.generated"),
-        .source_files = &.{"tests/protos_for_test/generated_in_ci.proto"},
-        .include_directories = &.{"tests/protos_for_test"},
-    });
-
-    const convertStep2 = RunProtocStep.create(b, b, target, .{
-        .destination_directory = b.path("tests/generated"),
-        .source_files = &.{ "tests/protos_for_test/all.proto", "tests/protos_for_test/whitespace-in-name.proto" },
-        .include_directories = &.{"tests/protos_for_test"},
-    });
-
-    for (tests) |test_item| {
-        if (!std.mem.eql(u8, "protobuf", test_item.name)) {
-            test_item.root_module.addImport("protobuf", module);
-        }
-
-        // This creates a build step. It will be visible in the `zig build --help` menu,
-        // and can be selected like this: `zig build test`
-        // This will evaluate the `test` step rather than the default, which is "install".
-        const run_main_tests = b.addRunArtifact(test_item);
-
-        test_item.step.dependOn(&convertStep.step);
-        test_item.step.dependOn(&convertStep2.step);
-
-        test_step.dependOn(&run_main_tests.step);
-    }
-
-    const wd = try getProtocInstallDir(std.heap.page_allocator, PROTOC_VERSION);
-
-    const bootstrap = b.step("bootstrap", "run the generator over its own sources");
-
-    const bootstrapConversion = RunProtocStep.create(b, b, target, .{
-        .destination_directory = b.path("bootstrapped-generator"),
-        .source_files = &.{
-            b.pathJoin(&.{ wd, "include/google/protobuf/compiler/plugin.proto" }),
-            b.pathJoin(&.{ wd, "include/google/protobuf/descriptor.proto" }),
-        },
-        .include_directories = &.{},
-    });
-
-    bootstrap.dependOn(&bootstrapConversion.step);
+    _ = try getProtocInstallDir(std.heap.page_allocator, PROTOC_VERSION);
 }
 
 pub const RunProtocStep = struct {
     step: Step,
-    source_files: []const []const u8,
+    source_file: []const u8,
     include_directories: []const []const u8,
-    destination_directory: std.Build.LazyPath,
+
     generator: *std.Build.Step.Compile,
     verbose: bool = false, // useful for debugging if you need to know what protoc command is sent
+
+    output_file: std.Build.GeneratedFile,
+    out_file_path: []const u8,
+
+    module: *std.Build.Module,
 
     pub const base_id = .protoc;
 
     pub const Options = struct {
-        source_files: []const []const u8,
+        source_file: []const u8,
         include_directories: []const []const u8 = &.{},
-        destination_directory: std.Build.LazyPath,
+        out_file_path: []const u8,
     };
 
     pub const StepErr = error{
@@ -193,6 +87,7 @@ pub const RunProtocStep = struct {
         dependency_builder: *std.Build,
         target: std.Build.ResolvedTarget,
         options: Options,
+        protobuf_module: *std.Build.Module,
     ) *RunProtocStep {
         var self: *RunProtocStep = owner.allocator.create(RunProtocStep) catch @panic("OOM");
         self.* = .{
@@ -202,11 +97,25 @@ pub const RunProtocStep = struct {
                 .owner = owner,
                 .makeFn = make,
             }),
-            .source_files = owner.dupeStrings(options.source_files),
+            .source_file = owner.dupe(options.source_file),
             .include_directories = owner.dupeStrings(options.include_directories),
-            .destination_directory = options.destination_directory.dupe(owner),
+            .output_file = .{ .step = &self.step },
             .generator = buildGenerator(dependency_builder, .{ .target = target }),
+            .out_file_path = owner.dupe(options.out_file_path),
+            .module = undefined,
         };
+
+        // Create module
+        self.module = owner.createModule(.{
+            .root_source_file = .{
+                .generated = .{
+                    .file = &self.output_file,
+                },
+            },
+            .target = target,
+            .optimize = .ReleaseFast,
+        });
+        self.module.addImport("protobuf", protobuf_module);
 
         self.step.dependOn(&self.generator.step);
 
@@ -222,9 +131,45 @@ pub const RunProtocStep = struct {
         const b = step.owner;
         const self: *RunProtocStep = @fieldParentPtr("step", step);
 
-        const absolute_dest_dir = self.destination_directory.getPath(b);
+        var man = b.graph.cache.obtain();
+        defer man.deinit();
 
-        { // run protoc
+        // Random bytes to make step unique. Refresh this with new
+        // random bytes when ConfigHeader implementation is modified in a
+        // non-backwards-compatible way.
+        man.hash.add(@as(u32, 0xdef01d31));
+        for (self.include_directories) |include| {
+            man.hash.addBytes(include);
+        }
+
+        man.hash.addBytes(self.source_file);
+
+        const src = try std.fs.cwd().readFileAlloc(b.allocator, self.source_file, 1024 * 1024 * 32);
+        defer b.allocator.free(src);
+
+        man.hash.addBytes(src);
+
+        if (try step.cacheHit(&man)) {
+            const digest = man.final();
+            self.output_file.path = try b.cache_root.join(b.allocator, &.{
+                "o", &digest, self.out_file_path,
+            });
+            return;
+        }
+
+        const digest = man.final();
+
+        const dir_path = try b.cache_root.join(b.allocator, &.{
+            "o", &digest,
+        });
+
+        b.cache_root.handle.makePath(dir_path) catch |err| {
+            return step.fail("unable to make path '{}{s}': {s}", .{
+                b.cache_root, dir_path, @errorName(err),
+            });
+        };
+        {
+            // run protoc
             var argv = std.ArrayList([]const u8).init(b.allocator);
 
             const protoc_path = try ensureProtocBinaryDownloaded(std.heap.page_allocator, PROTOC_VERSION);
@@ -235,18 +180,17 @@ pub const RunProtocStep = struct {
 
             // specify the destination
 
-            try argv.append(try std.mem.concat(b.allocator, u8, &.{ "--zig_out=", absolute_dest_dir }));
-            if (!dirExists(absolute_dest_dir)) {
-                try std.fs.makeDirAbsolute(absolute_dest_dir);
+            try argv.append(try std.mem.concat(b.allocator, u8, &.{ "--zig_out=", dir_path }));
+            if (!dirExists(dir_path)) {
+                try std.fs.makeDirAbsolute(dir_path);
             }
 
             // include directories
             for (self.include_directories) |it| {
                 try argv.append(try std.mem.concat(b.allocator, u8, &.{ "-I", it }));
             }
-            for (self.source_files) |it| {
-                try argv.append(it);
-            }
+
+            try argv.append(self.source_file);
 
             if (self.verbose) {
                 std.debug.print("Running protoc:", .{});
@@ -264,10 +208,48 @@ pub const RunProtocStep = struct {
 
             try argv.append(b.graph.zig_exe);
             try argv.append("fmt");
-            try argv.append(absolute_dest_dir);
+            try argv.append(dir_path);
 
             _ = try step.evalChildProcess(argv.items);
         }
+
+        const child_dir = try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
+
+        var content = std.ArrayListUnmanaged(u8){};
+        defer content.deinit(b.allocator);
+
+        var dir_stack = std.ArrayListUnmanaged(std.fs.Dir){};
+        try dir_stack.append(b.allocator, child_dir);
+
+        while (dir_stack.items.len > 0) {
+            const next_child = dir_stack.pop() orelse @panic("");
+            var it = next_child.iterate();
+            while (try it.next()) |next| {
+                switch (next.kind) {
+                    .file => {
+                        const child_content = try next_child.readFileAlloc(b.allocator, next.name, 1024 * 1024 * 32);
+                        try content.appendSlice(b.allocator, child_content);
+                    },
+                    .directory => {
+                        const dir = try next_child.openDir(next.name, .{ .iterate = true });
+                        try dir_stack.append(b.allocator, dir);
+                    },
+                    else => {},
+                }
+            }
+        }
+
+        const sub_path = b.pathJoin(&.{ "o", &digest, self.out_file_path });
+        // const sub_path_dirname = std.fs.path.dirname(sub_path).?;
+        b.cache_root.handle.writeFile(.{ .data = content.items, .sub_path = sub_path }) catch |err| {
+            return step.fail("unable to write proto file '{}{s}': {s}", .{
+                b.cache_root, sub_path, @errorName(err),
+            });
+        };
+
+        self.output_file.path = try b.cache_root.join(b.allocator, &.{sub_path});
+
+        try man.writeManifest();
     }
 };
 
