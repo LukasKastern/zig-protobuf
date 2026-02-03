@@ -144,7 +144,7 @@ pub const RunProtocStep = struct {
 
         man.hash.addBytes(self.source_file);
 
-        const src = try std.fs.cwd().readFileAlloc(b.allocator, self.source_file, 1024 * 1024 * 32);
+        const src = try b.build_root.handle.readFileAlloc(b.allocator, self.source_file, 1024 * 1024 * 32);
         defer b.allocator.free(src);
 
         man.hash.addBytes(src);
@@ -190,7 +190,13 @@ pub const RunProtocStep = struct {
                 try argv.append(try std.mem.concat(b.allocator, u8, &.{ "-I", it }));
             }
 
-            try argv.append(self.source_file);
+            const real_path = try b.build_root.handle.realpathAlloc(b.allocator, self.source_file);
+            const source_file_dir_path = std.fs.path.dirname(real_path) orelse return error.NoDirNameFound;
+
+            try argv.append(try std.mem.concat(b.allocator, u8, &.{ "--proto_path=", source_file_dir_path }));
+
+            // Add source file
+            try argv.append(std.fs.path.basename(real_path));
 
             if (self.verbose) {
                 std.debug.print("Running protoc:", .{});
@@ -213,8 +219,7 @@ pub const RunProtocStep = struct {
             _ = try step.evalChildProcess(argv.items);
         }
 
-        const child_dir = try std.fs.cwd().openDir(dir_path, .{ .iterate = true });
-
+        const child_dir = try b.cache_root.handle.openDir(dir_path, .{ .iterate = true });
         var content = std.ArrayListUnmanaged(u8){};
         defer content.deinit(b.allocator);
 
