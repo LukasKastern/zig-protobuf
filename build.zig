@@ -137,7 +137,7 @@ pub const RunProtocStep = struct {
         // Random bytes to make step unique. Refresh this with new
         // random bytes when ConfigHeader implementation is modified in a
         // non-backwards-compatible way.
-        man.hash.add(@as(u32, 0xdef01d49));
+        man.hash.add(@as(u32, 0xdef01d53));
         for (self.include_directories) |include| {
             man.hash.addBytes(include);
         }
@@ -163,11 +163,20 @@ pub const RunProtocStep = struct {
             "o", &digest,
         });
 
+        const proto_gen_path = try b.cache_root.join(b.allocator, &.{
+            "o", &digest, "gen",
+        });
+
         b.cache_root.handle.makePath(dir_path) catch |err| {
             return step.fail("unable to make path '{}{s}': {s}", .{
                 b.cache_root, dir_path, @errorName(err),
             });
         };
+
+        b.cache_root.handle.makePath(proto_gen_path) catch |e| {
+            return step.fail("unable to make path {s}: {}", .{ proto_gen_path, e });
+        };
+
         {
             // run protoc
             var argv = std.ArrayList([]const u8).init(b.allocator);
@@ -180,9 +189,9 @@ pub const RunProtocStep = struct {
 
             // specify the destination
 
-            try argv.append(try std.mem.concat(b.allocator, u8, &.{ "--zig_out=", dir_path }));
-            if (!dirExists(dir_path)) {
-                try std.fs.makeDirAbsolute(dir_path);
+            try argv.append(try std.mem.concat(b.allocator, u8, &.{ "--zig_out=", proto_gen_path }));
+            if (!dirExists(proto_gen_path)) {
+                try std.fs.makeDirAbsolute(proto_gen_path);
             }
 
             // include directories
@@ -214,12 +223,12 @@ pub const RunProtocStep = struct {
 
             try argv.append(b.graph.zig_exe);
             try argv.append("fmt");
-            try argv.append(dir_path);
+            try argv.append(proto_gen_path);
 
             _ = try step.evalChildProcess(argv.items);
         }
 
-        const child_dir = try b.cache_root.handle.openDir(dir_path, .{ .iterate = true });
+        const child_dir = try b.cache_root.handle.openDir(proto_gen_path, .{ .iterate = true });
         var content = std.ArrayListUnmanaged(u8){};
 
         const DirStackEntry = struct {
@@ -227,7 +236,7 @@ pub const RunProtocStep = struct {
             entry: std.fs.Dir,
         };
         var dir_stack = std.ArrayListUnmanaged(DirStackEntry){};
-        try dir_stack.append(b.allocator, .{ .path = "", .entry = child_dir });
+        try dir_stack.append(b.allocator, .{ .path = "gen/", .entry = child_dir });
 
         // Find exports inside the generated proto files
         var exports = std.ArrayListUnmanaged([]const u8){};
@@ -279,13 +288,16 @@ pub const RunProtocStep = struct {
         }
 
         const sub_path = b.pathJoin(&.{ "o", &digest, self.out_file_path });
+
         b.cache_root.handle.writeFile(.{ .data = content.items, .sub_path = sub_path }) catch |err| {
             return step.fail("unable to write proto file '{}{s}': {s}", .{
                 b.cache_root, sub_path, @errorName(err),
             });
         };
 
-        self.output_file.path = try b.cache_root.join(b.allocator, &.{sub_path});
+        self.output_file.path = try b.cache_root.join(b.allocator, &.{
+            "o", &digest, self.out_file_path,
+        });
 
         try man.writeManifest();
     }
