@@ -144,7 +144,9 @@ pub const RunProtocStep = struct {
 
         man.hash.addBytes(self.source_file);
 
-        const src = try b.build_root.handle.readFileAlloc(b.allocator, self.source_file, 1024 * 1024 * 32);
+        const src = b.build_root.handle.readFileAlloc(b.allocator, self.source_file, 1024 * 1024 * 32) catch |e| {
+            return step.fail("unable to find source file {s}: {}", .{ self.source_file, e });
+        };
         defer b.allocator.free(src);
 
         man.hash.addBytes(src);
