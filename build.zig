@@ -217,7 +217,14 @@ pub const RunProtocStep = struct {
                 std.debug.print("\n", .{});
             }
 
-            _ = try step.evalChildProcess(argv.items);
+            // Run with working dir set to build root
+            const result = std.process.Child.run(.{
+                .allocator = b.allocator,
+                .argv = argv.items,
+                .progress_node = std.Progress.Node.none,
+                .cwd_dir = b.build_root.handle,
+            }) catch |err| return step.fail("failed to run {s}: {s}", .{ argv.items[0], @errorName(err) });
+            try step.handleChildProcessTerm(result.term, null, argv.items);
         }
 
         { // run zig fmt <destination>
