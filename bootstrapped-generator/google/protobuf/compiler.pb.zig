@@ -2,7 +2,7 @@
 ///! package google.protobuf.compiler
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const ArrayList = std.ArrayList;
+const ArrayList = std.ArrayListUnmanaged;
 
 const protobuf = @import("protobuf");
 const ManagedString = protobuf.ManagedString;
@@ -35,8 +35,8 @@ pub const Version = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -95,8 +95,8 @@ pub const CodeGeneratorRequest = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -172,8 +172,8 @@ pub const CodeGeneratorResponse = struct {
         pub fn init(allocator: Allocator) @This() {
             return protobuf.pb_init(@This(), allocator);
         }
-        pub fn deinit(self: @This()) void {
-            return protobuf.pb_deinit(self);
+        pub fn deinit(self: @This(), allocator: Allocator) void {
+            return protobuf.pb_deinit(self, allocator);
         }
         pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
             return protobuf.pb_dupe(@This(), self, allocator);
@@ -219,8 +219,8 @@ pub const CodeGeneratorResponse = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);

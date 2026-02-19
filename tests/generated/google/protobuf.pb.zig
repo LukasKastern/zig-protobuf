@@ -2,7 +2,7 @@
 ///! package google.protobuf
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const ArrayList = std.ArrayList;
+const ArrayList = std.ArrayListUnmanaged;
 
 const protobuf = @import("protobuf");
 const ManagedString = protobuf.ManagedString;
@@ -27,8 +27,8 @@ pub const FileDescriptorSet = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -105,8 +105,8 @@ pub const FileDescriptorProto = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -188,8 +188,8 @@ pub const DescriptorProto = struct {
         pub fn init(allocator: Allocator) @This() {
             return protobuf.pb_init(@This(), allocator);
         }
-        pub fn deinit(self: @This()) void {
-            return protobuf.pb_deinit(self);
+        pub fn deinit(self: @This(), allocator: Allocator) void {
+            return protobuf.pb_deinit(self, allocator);
         }
         pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
             return protobuf.pb_dupe(@This(), self, allocator);
@@ -244,8 +244,8 @@ pub const DescriptorProto = struct {
         pub fn init(allocator: Allocator) @This() {
             return protobuf.pb_init(@This(), allocator);
         }
-        pub fn deinit(self: @This()) void {
-            return protobuf.pb_deinit(self);
+        pub fn deinit(self: @This(), allocator: Allocator) void {
+            return protobuf.pb_deinit(self, allocator);
         }
         pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
             return protobuf.pb_dupe(@This(), self, allocator);
@@ -291,8 +291,8 @@ pub const DescriptorProto = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -372,8 +372,8 @@ pub const ExtensionRangeOptions = struct {
         pub fn init(allocator: Allocator) @This() {
             return protobuf.pb_init(@This(), allocator);
         }
-        pub fn deinit(self: @This()) void {
-            return protobuf.pb_deinit(self);
+        pub fn deinit(self: @This(), allocator: Allocator) void {
+            return protobuf.pb_deinit(self, allocator);
         }
         pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
             return protobuf.pb_dupe(@This(), self, allocator);
@@ -419,8 +419,8 @@ pub const ExtensionRangeOptions = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -522,8 +522,8 @@ pub const FieldDescriptorProto = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -578,8 +578,8 @@ pub const OneofDescriptorProto = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -649,8 +649,8 @@ pub const EnumDescriptorProto = struct {
         pub fn init(allocator: Allocator) @This() {
             return protobuf.pb_init(@This(), allocator);
         }
-        pub fn deinit(self: @This()) void {
-            return protobuf.pb_deinit(self);
+        pub fn deinit(self: @This(), allocator: Allocator) void {
+            return protobuf.pb_deinit(self, allocator);
         }
         pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
             return protobuf.pb_dupe(@This(), self, allocator);
@@ -696,8 +696,8 @@ pub const EnumDescriptorProto = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -754,8 +754,8 @@ pub const EnumValueDescriptorProto = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -812,8 +812,8 @@ pub const ServiceDescriptorProto = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -876,8 +876,8 @@ pub const MethodDescriptorProto = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -977,8 +977,8 @@ pub const FileOptions = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1041,8 +1041,8 @@ pub const MessageOptions = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1152,8 +1152,8 @@ pub const FieldOptions = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1206,8 +1206,8 @@ pub const OneofOptions = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1266,8 +1266,8 @@ pub const EnumOptions = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1322,8 +1322,8 @@ pub const EnumValueOptions = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1378,8 +1378,8 @@ pub const ServiceOptions = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1443,8 +1443,8 @@ pub const MethodOptions = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1518,8 +1518,8 @@ pub const UninterpretedOption = struct {
         pub fn init(allocator: Allocator) @This() {
             return protobuf.pb_init(@This(), allocator);
         }
-        pub fn deinit(self: @This()) void {
-            return protobuf.pb_deinit(self);
+        pub fn deinit(self: @This(), allocator: Allocator) void {
+            return protobuf.pb_deinit(self, allocator);
         }
         pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
             return protobuf.pb_dupe(@This(), self, allocator);
@@ -1565,8 +1565,8 @@ pub const UninterpretedOption = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1634,8 +1634,8 @@ pub const SourceCodeInfo = struct {
         pub fn init(allocator: Allocator) @This() {
             return protobuf.pb_init(@This(), allocator);
         }
-        pub fn deinit(self: @This()) void {
-            return protobuf.pb_deinit(self);
+        pub fn deinit(self: @This(), allocator: Allocator) void {
+            return protobuf.pb_deinit(self, allocator);
         }
         pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
             return protobuf.pb_dupe(@This(), self, allocator);
@@ -1681,8 +1681,8 @@ pub const SourceCodeInfo = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1757,8 +1757,8 @@ pub const GeneratedCodeInfo = struct {
         pub fn init(allocator: Allocator) @This() {
             return protobuf.pb_init(@This(), allocator);
         }
-        pub fn deinit(self: @This()) void {
-            return protobuf.pb_deinit(self);
+        pub fn deinit(self: @This(), allocator: Allocator) void {
+            return protobuf.pb_deinit(self, allocator);
         }
         pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
             return protobuf.pb_dupe(@This(), self, allocator);
@@ -1804,8 +1804,8 @@ pub const GeneratedCodeInfo = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1860,8 +1860,8 @@ pub const Any = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1916,8 +1916,8 @@ pub const Duration = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -1970,8 +1970,8 @@ pub const FieldMask = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2038,8 +2038,8 @@ pub const Struct = struct {
         pub fn init(allocator: Allocator) @This() {
             return protobuf.pb_init(@This(), allocator);
         }
-        pub fn deinit(self: @This()) void {
-            return protobuf.pb_deinit(self);
+        pub fn deinit(self: @This(), allocator: Allocator) void {
+            return protobuf.pb_deinit(self, allocator);
         }
         pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
             return protobuf.pb_dupe(@This(), self, allocator);
@@ -2085,8 +2085,8 @@ pub const Struct = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2164,8 +2164,8 @@ pub const Value = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2218,8 +2218,8 @@ pub const ListValue = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2274,8 +2274,8 @@ pub const Timestamp = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2328,8 +2328,8 @@ pub const DoubleValue = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2382,8 +2382,8 @@ pub const FloatValue = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2436,8 +2436,8 @@ pub const Int64Value = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2490,8 +2490,8 @@ pub const UInt64Value = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2544,8 +2544,8 @@ pub const Int32Value = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2598,8 +2598,8 @@ pub const UInt32Value = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2652,8 +2652,8 @@ pub const BoolValue = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2706,8 +2706,8 @@ pub const StringValue = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);
@@ -2760,8 +2760,8 @@ pub const BytesValue = struct {
     pub fn init(allocator: Allocator) @This() {
         return protobuf.pb_init(@This(), allocator);
     }
-    pub fn deinit(self: @This()) void {
-        return protobuf.pb_deinit(self);
+    pub fn deinit(self: @This(), allocator: Allocator) void {
+        return protobuf.pb_deinit(self, allocator);
     }
     pub fn dupe(self: @This(), allocator: Allocator) Allocator.Error!@This() {
         return protobuf.pb_dupe(@This(), self, allocator);

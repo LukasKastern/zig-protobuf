@@ -137,7 +137,7 @@ pub const RunProtocStep = struct {
         // Random bytes to make step unique. Refresh this with new
         // random bytes when ConfigHeader implementation is modified in a
         // non-backwards-compatible way.
-        man.hash.add(@as(u32, 0xdef01d53));
+        man.hash.add(@as(u32, 0xdef01d56));
         for (self.include_directories) |include| {
             man.hash.addBytes(include);
         }
