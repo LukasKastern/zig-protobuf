@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) !void {
     // running `zig build`).
     b.installArtifact(lib);
 
-    _ = b.addModule("protobuf", .{
+    const protobuf_mod = b.addModule("protobuf", .{
         .root_source_file = b.path("src/protobuf.zig"),
         .target = target,
         .optimize = optimize,
@@ -47,7 +47,7 @@ pub fn build(b: *std.Build) !void {
     const exe = buildGenerator(b, .{
         .target = target,
         .optimize = optimize,
-    });
+    }, protobuf_mod);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -100,7 +100,7 @@ pub const RunProtocStep = struct {
             .source_file = owner.dupe(options.source_file),
             .include_directories = owner.dupeStrings(options.include_directories),
             .output_file = .{ .step = &self.step },
-            .generator = buildGenerator(dependency_builder, .{ .target = target }),
+            .generator = buildGenerator(dependency_builder, .{ .target = target }, protobuf_module),
             .out_file_path = owner.dupe(options.out_file_path),
             .module = undefined,
         };
@@ -317,7 +317,7 @@ pub const GenOptions = struct {
     optimize: std.builtin.OptimizeMode = .Debug,
 };
 
-pub fn buildGenerator(b: *std.Build, opt: GenOptions) *std.Build.Step.Compile {
+pub fn buildGenerator(b: *std.Build, opt: GenOptions, protobuf_module: *std.Build.Module) *std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = "protoc-gen-zig",
         // In this case the main source file is merely a path, however, in more
@@ -327,11 +327,11 @@ pub fn buildGenerator(b: *std.Build, opt: GenOptions) *std.Build.Step.Compile {
         .optimize = opt.optimize,
     });
 
-    const module = b.addModule("protobuf", .{
-        .root_source_file = b.path("src/protobuf.zig"),
-    });
+    // const module = b.addModule("protobuf", .{
+    // .root_source_file = b.path("src/protobuf.zig"),
+    // });
 
-    exe.root_module.addImport("protobuf", module);
+    exe.root_module.addImport("protobuf", protobuf_module);
 
     b.installArtifact(exe);
 

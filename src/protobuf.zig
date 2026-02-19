@@ -1095,7 +1095,7 @@ fn decode_data(comptime T: type, comptime field_desc: FieldDescriptor, comptime 
                 },
                 .FixedInt => |_| {
                     switch (extracted_data.data) {
-                        .RawValue => |value| try @field(result, field.name).append(decode_fixed_value(child_type, value)),
+                        .RawValue => |value| try @field(result, field.name).append(allocator, decode_fixed_value(child_type, value)),
                         .Slice => |slice| try decode_packed_list(slice, list_type, child_type, &@field(result, field.name), allocator),
                     }
                 },
