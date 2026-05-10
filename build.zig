@@ -9,6 +9,7 @@ const LazyPath = std.Build.LazyPath;
 const PROTOC_VERSION = "23.4";
 
 pub fn build(b: *std.Build) !void {
+
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
@@ -54,7 +55,11 @@ pub fn build(b: *std.Build) !void {
     // step when running `zig build`).
     b.installArtifact(exe);
 
-    _ = try getProtocInstallDir(std.heap.page_allocator, PROTOC_VERSION);
+    _ = try getProtocInstallDir(b.graph.io, std.heap.page_allocator, PROTOC_VERSION);
+
+    const check = b.step("check", "check");
+    check.dependOn(&exe.step);
+    check.dependOn(&lib.step);
 }
 
 pub const RunProtocStep = struct {
@@ -183,7 +188,7 @@ pub const RunProtocStep = struct {
             // run protoc
             var argv = std.ArrayList([]const u8).init(b.allocator);
 
-            const protoc_path = try ensureProtocBinaryDownloaded(std.heap.page_allocator, PROTOC_VERSION);
+            const protoc_path = try ensureProtocBinaryDownloaded(b.graph.io, std.heap.page_allocator, PROTOC_VERSION);
             try argv.append(protoc_path);
 
             // specify the path to the plugin
@@ -322,9 +327,11 @@ pub fn buildGenerator(b: *std.Build, opt: GenOptions, protobuf_module: *std.Buil
         .name = "protoc-gen-zig",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = b.path("bootstrapped-generator/main.zig"),
-        .target = opt.target,
-        .optimize = opt.optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("bootstrapped-generator/main.zig"),
+            .target = opt.target,
+            .optimize = opt.optimize,
+        }),
     });
 
     // const module = b.addModule("protobuf", .{
@@ -350,26 +357,16 @@ fn getGitHubBaseURLOwned(allocator: std.mem.Allocator) ![]const u8 {
 var download_mutex = std.Thread.Mutex{};
 
 fn getProtocInstallDir(
+    io: std.Io,
     allocator: std.mem.Allocator,
     protoc_version: []const u8,
 ) ![]const u8 {
-    if (std.process.getEnvVarOwned(allocator, "PROTOC_PATH") catch null) |protoc_path| {
-        std.log.info("zig-protobuf: respecting PROTOC_PATH: {s}\n", .{protoc_path});
-        if (fileExists(protoc_path)) {
-            // user has probably provided full path to protoc binary instead of proto_dir
-            // also, if these fail and user explicitly provided custom path, we probably don't want to download stuff
-            const bin_dir = std.fs.path.dirname(protoc_path).?;
-            const real_proto_dir = std.fs.path.dirname(bin_dir).?;
-            return real_proto_dir;
-        }
-
-        std.log.err("zig-protobuf: cannot resolve a protoc provided via PROTOC_PATH env var ({s}), make sure the value is correct", .{protoc_path});
-        std.process.exit(1);
-    }
-
     const base_cache_dir_rel = try std.fs.path.join(allocator, &.{ ".zig-cache", "zig-protobuf", "protoc" });
-    try std.fs.cwd().makePath(base_cache_dir_rel);
-    const base_cache_dir = try std.fs.cwd().realpathAlloc(allocator, base_cache_dir_rel);
+
+    const cwd = std.Io.Dir.cwd();
+    try cwd.createDirPath(io, base_cache_dir_rel);
+
+    const base_cache_dir = try cwd.realPathFileAlloc(io, base_cache_dir_rel, allocator);
     const versioned_cache_dir = try std.fs.path.join(allocator, &.{ base_cache_dir, protoc_version });
     defer {
         allocator.free(base_cache_dir_rel);
@@ -383,10 +380,11 @@ fn getProtocInstallDir(
 
 /// ensures the protoc executable exists and returns an absolute path to it
 fn ensureProtocBinaryDownloaded(
+    io: *std.Io,
     allocator: std.mem.Allocator,
     protoc_version: []const u8,
 ) ![]const u8 {
-    const target_cache_dir = try getProtocInstallDir(allocator, protoc_version);
+    const target_cache_dir = try getProtocInstallDir(io, allocator, protoc_version);
 
     const executable_path = if (builtin.os.tag == .windows)
         try std.fs.path.join(allocator, &.{ target_cache_dir, "bin", "protoc.exe" })
