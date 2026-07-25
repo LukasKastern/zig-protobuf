@@ -64,7 +64,7 @@ pub fn build(b: *std.Build) !void {
 
 pub const RunProtocStep = struct {
     step: Step,
-    source_file: []const u8,
+    source_file: std.Build.LazyPath,
     include_directories: []const []const u8,
 
     generator: *std.Build.Step.Compile,
@@ -78,7 +78,7 @@ pub const RunProtocStep = struct {
     pub const base_id = .protoc;
 
     pub const Options = struct {
-        source_file: []const u8,
+        source_file: std.Build.LazyPath,
         include_directories: []const []const u8 = &.{},
         out_file_path: []const u8,
     };
@@ -102,7 +102,7 @@ pub const RunProtocStep = struct {
                 .owner = owner,
                 .makeFn = make,
             }),
-            .source_file = owner.dupe(options.source_file),
+            .source_file = options.source_file,
             .include_directories = owner.dupeStrings(options.include_directories),
             .output_file = .{ .step = &self.step },
             .generator = buildGenerator(dependency_builder, .{ .target = target }, protobuf_module),
@@ -147,10 +147,12 @@ pub const RunProtocStep = struct {
             man.hash.addBytes(include);
         }
 
-        man.hash.addBytes(self.source_file);
+        const source_file = self.source_file.src_path;
 
-        const src = b.build_root.handle.readFileAlloc(b.graph.io, self.source_file, b.allocator, .unlimited) catch |e| {
-            return step.fail("unable to find source file {s}: {}", .{ self.source_file, e });
+        man.hash.addBytes(source_file.sub_path);
+
+        const src = source_file.owner.build_root.handle.readFileAlloc(b.graph.io, source_file.sub_path, b.allocator, .unlimited) catch |e| {
+            return step.fail("unable to find source file {s}: {}", .{ source_file.sub_path, e });
         };
         defer b.allocator.free(src);
 
@@ -204,7 +206,7 @@ pub const RunProtocStep = struct {
                 try argv.append(b.allocator, try std.mem.concat(b.allocator, u8, &.{ "-I", it }));
             }
 
-            const real_path = try b.build_root.handle.realPathFileAlloc(b.graph.io, self.source_file, b.allocator);
+            const real_path = try source_file.owner.build_root.handle.realPathFileAlloc(b.graph.io, source_file.sub_path, b.allocator);
             const source_file_dir_path = std.fs.path.dirname(real_path) orelse return error.NoDirNameFound;
 
             try argv.append(b.allocator, try std.mem.concat(b.allocator, u8, &.{ "--proto_path=", source_file_dir_path }));
