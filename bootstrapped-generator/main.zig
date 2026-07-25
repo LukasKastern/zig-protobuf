@@ -27,7 +27,7 @@ pub fn main(init: std.process.Init) !void {
 
     const stdout = std.Io.File.stdout();
     const r = try ctx.res.encode(allocator);
-    _ = try stdout.writePositionalAll(init.io, r, 0);
+    _ = try stdout.writeStreamingAll(init.io, r);
 }
 
 const GenerationContext = struct {

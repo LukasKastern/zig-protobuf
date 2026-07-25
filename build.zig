@@ -142,14 +142,14 @@ pub const RunProtocStep = struct {
         // Random bytes to make step unique. Refresh this with new
         // random bytes when ConfigHeader implementation is modified in a
         // non-backwards-compatible way.
-        man.hash.add(@as(u32, 0xdef01d56));
+        man.hash.add(@as(u32, 0xdef01d57));
         for (self.include_directories) |include| {
             man.hash.addBytes(include);
         }
 
         man.hash.addBytes(self.source_file);
 
-        const src = b.build_root.handle.readFileAlloc(b.allocator, self.source_file, 1024 * 1024 * 32) catch |e| {
+        const src = b.build_root.handle.readFileAlloc(b.graph.io, self.source_file, b.allocator, .unlimited) catch |e| {
             return step.fail("unable to find source file {s}: {}", .{ self.source_file, e });
         };
         defer b.allocator.free(src);
@@ -174,45 +174,43 @@ pub const RunProtocStep = struct {
             "o", &digest, "gen",
         });
 
-        b.cache_root.handle.makePath(dir_path) catch |err| {
+        b.cache_root.handle.createDirPath(b.graph.io, dir_path) catch |err| {
             return step.fail("unable to make path '{}{s}': {s}", .{
                 b.cache_root, dir_path, @errorName(err),
             });
         };
 
-        b.cache_root.handle.makePath(proto_gen_path) catch |e| {
+        b.cache_root.handle.createDirPath(b.graph.io, proto_gen_path) catch |e| {
             return step.fail("unable to make path {s}: {}", .{ proto_gen_path, e });
         };
 
         {
             // run protoc
-            var argv = std.ArrayList([]const u8).init(b.allocator);
+            var argv: std.ArrayList([]const u8) = .empty;
 
             const protoc_path = try ensureProtocBinaryDownloaded(b.graph.io, std.heap.page_allocator, PROTOC_VERSION);
-            try argv.append(protoc_path);
+            try argv.append(b.allocator, protoc_path);
 
             // specify the path to the plugin
-            try argv.append(try std.mem.concat(b.allocator, u8, &.{ "--plugin=protoc-gen-zig=", self.generator.getEmittedBin().getPath(b) }));
+            try argv.append(b.allocator, try std.mem.concat(b.allocator, u8, &.{ "--plugin=protoc-gen-zig=", self.generator.getEmittedBin().getPath(b) }));
+            try std.Io.Dir.cwd().createDirPath(b.graph.io, proto_gen_path);
 
             // specify the destination
 
-            try argv.append(try std.mem.concat(b.allocator, u8, &.{ "--zig_out=", proto_gen_path }));
-            if (!dirExists(proto_gen_path)) {
-                try std.fs.makeDirAbsolute(proto_gen_path);
-            }
+            try argv.append(b.allocator, try std.mem.concat(b.allocator, u8, &.{ "--zig_out=", proto_gen_path }));
 
             // include directories
             for (self.include_directories) |it| {
-                try argv.append(try std.mem.concat(b.allocator, u8, &.{ "-I", it }));
+                try argv.append(b.allocator, try std.mem.concat(b.allocator, u8, &.{ "-I", it }));
             }
 
-            const real_path = try b.build_root.handle.realpathAlloc(b.allocator, self.source_file);
+            const real_path = try b.build_root.handle.realPathFileAlloc(b.graph.io, self.source_file, b.allocator);
             const source_file_dir_path = std.fs.path.dirname(real_path) orelse return error.NoDirNameFound;
 
-            try argv.append(try std.mem.concat(b.allocator, u8, &.{ "--proto_path=", source_file_dir_path }));
+            try argv.append(b.allocator, try std.mem.concat(b.allocator, u8, &.{ "--proto_path=", source_file_dir_path }));
 
             // Add source file
-            try argv.append(std.fs.path.basename(real_path));
+            try argv.append(b.allocator, std.fs.path.basename(real_path));
 
             if (self.verbose) {
                 std.debug.print("Running protoc:", .{});
@@ -223,44 +221,49 @@ pub const RunProtocStep = struct {
             }
 
             // Run with working dir set to build root
-            const result = std.process.Child.run(.{
-                .allocator = b.allocator,
+            const result = std.process.run(b.allocator, b.graph.io, .{
                 .argv = argv.items,
                 .progress_node = std.Progress.Node.none,
-                .cwd_dir = b.build_root.handle,
+                .cwd = .{ .dir = b.build_root.handle },
             }) catch |err| return step.fail("failed to run {s}: {s}", .{ argv.items[0], @errorName(err) });
-            try step.handleChildProcessTerm(result.term, null, argv.items);
+
+            if (result.term != .exited or result.term.exited != 0) {
+                for (argv.items) |item| {
+                    std.log.err("item: {s}", .{item});
+                }
+                return step.fail("failed to protoc gen {s}: {s} {s} {}", .{ argv.items[0], result.stdout, result.stderr, result.term });
+            }
         }
 
         { // run zig fmt <destination>
-            var argv = std.ArrayList([]const u8).init(b.allocator);
+            var argv: std.ArrayList([]const u8) = .empty;
 
-            try argv.append(b.graph.zig_exe);
-            try argv.append("fmt");
-            try argv.append(proto_gen_path);
+            try argv.append(b.allocator, b.graph.zig_exe);
+            try argv.append(b.allocator, "fmt");
+            try argv.append(b.allocator, proto_gen_path);
 
-            _ = try step.evalChildProcess(argv.items);
+            _ = b.run(argv.items);
         }
 
-        const child_dir = try b.cache_root.handle.openDir(proto_gen_path, .{ .iterate = true });
-        var content = std.ArrayListUnmanaged(u8){};
+        const child_dir = try std.Io.Dir.cwd().openDir(b.graph.io, proto_gen_path, .{ .iterate = true });
+        var content: std.ArrayList(u8) = .empty;
 
         const DirStackEntry = struct {
             path: []const u8,
-            entry: std.fs.Dir,
+            entry: std.Io.Dir,
         };
-        var dir_stack = std.ArrayListUnmanaged(DirStackEntry){};
+        var dir_stack: std.ArrayList(DirStackEntry) = .empty;
         try dir_stack.append(b.allocator, .{ .path = "gen/", .entry = child_dir });
 
         // Find exports inside the generated proto files
-        var exports = std.ArrayListUnmanaged([]const u8){};
+        var exports: std.ArrayList([]const u8) = .empty;
         while (dir_stack.items.len > 0) {
             const next_child = dir_stack.pop() orelse @panic("");
             var it = next_child.entry.iterate();
-            while (try it.next()) |next| {
+            while (try it.next(b.graph.io)) |next| {
                 switch (next.kind) {
                     .file => {
-                        const child_content = try next_child.entry.readFileAlloc(b.allocator, next.name, 1024 * 1024 * 32);
+                        const child_content = try next_child.entry.readFileAlloc(b.graph.io, next.name, b.allocator, .unlimited);
 
                         const export_prefix = "pub const ";
 
@@ -280,7 +283,7 @@ pub const RunProtocStep = struct {
                         }
                     },
                     .directory => {
-                        const dir = try next_child.entry.openDir(next.name, .{ .iterate = true });
+                        const dir = try next_child.entry.openDir(b.graph.io, next.name, .{ .iterate = true });
                         const path = try std.mem.concat(b.allocator, u8, &.{ next_child.path, next.name, "/" });
 
                         try dir_stack.append(b.allocator, .{
@@ -303,7 +306,7 @@ pub const RunProtocStep = struct {
 
         const sub_path = b.pathJoin(&.{ "o", &digest, self.out_file_path });
 
-        b.cache_root.handle.writeFile(.{ .data = content.items, .sub_path = sub_path }) catch |err| {
+        b.cache_root.handle.writeFile(b.graph.io, .{ .data = content.items, .sub_path = sub_path }) catch |err| {
             return step.fail("unable to write proto file '{}{s}': {s}", .{
                 b.cache_root, sub_path, @errorName(err),
             });
@@ -346,15 +349,10 @@ pub fn buildGenerator(b: *std.Build, opt: GenOptions, protobuf_module: *std.Buil
 }
 
 fn getGitHubBaseURLOwned(allocator: std.mem.Allocator) ![]const u8 {
-    if (std.process.getEnvVarOwned(allocator, "GITHUB_BASE_URL")) |base_url| {
-        std.log.info("zig-protobuf: respecting GITHUB_BASE_URL: {s}\n", .{base_url});
-        return base_url;
-    } else |_| {
-        return allocator.dupe(u8, "https://github.com");
-    }
+    return allocator.dupe(u8, "https://github.com");
 }
 
-var download_mutex = std.Thread.Mutex{};
+var download_mutex: std.Io.Mutex = .init;
 
 fn getProtocInstallDir(
     io: std.Io,
@@ -380,7 +378,7 @@ fn getProtocInstallDir(
 
 /// ensures the protoc executable exists and returns an absolute path to it
 fn ensureProtocBinaryDownloaded(
-    io: *std.Io,
+    io: std.Io,
     allocator: std.mem.Allocator,
     protoc_version: []const u8,
 ) ![]const u8 {
@@ -391,11 +389,11 @@ fn ensureProtocBinaryDownloaded(
     else
         try std.fs.path.join(allocator, &.{ target_cache_dir, "bin", "protoc" });
 
-    if (fileExists(executable_path)) {
+    if (fileExists(io, executable_path)) {
         return executable_path; // nothing to do, already have the binary
     }
 
-    downloadProtoc(allocator, target_cache_dir, protoc_version) catch |err| {
+    downloadProtoc(io, allocator, target_cache_dir, protoc_version) catch |err| {
         // A download failed, or extraction failed, so wipe out the directory to ensure we correctly
         // try again next time.
         // std.fs.deleteTreeAbsolute(base_cache_dir) catch {};
@@ -403,7 +401,7 @@ fn ensureProtocBinaryDownloaded(
         std.process.exit(1);
     };
 
-    if (!fileExists(executable_path)) {
+    if (!fileExists(io, executable_path)) {
         std.log.err("zig-protobuf: file not found: {s}", .{executable_path});
         std.process.exit(1);
     }
@@ -450,19 +448,20 @@ fn getProtocDownloadLink(allocator: std.mem.Allocator, version: []const u8) !?[]
 }
 
 fn downloadProtoc(
+    io: std.Io,
     allocator: std.mem.Allocator,
     target_cache_dir: []const u8,
     protoc_version: []const u8,
 ) !void {
-    download_mutex.lock();
-    defer download_mutex.unlock();
+    download_mutex.lockUncancelable(io);
+    defer download_mutex.unlock(io);
 
-    ensureCanDownloadFiles(allocator);
-    ensureCanUnzipFiles(allocator);
+    ensureCanDownloadFiles(io, allocator);
+    ensureCanUnzipFiles(io, allocator);
 
     const download_dir = try std.fs.path.join(allocator, &.{ target_cache_dir, "download" });
     defer allocator.free(download_dir);
-    std.fs.cwd().makePath(download_dir) catch @panic(download_dir);
+    std.Io.Dir.createDirPath(std.Io.Dir.cwd(), io, download_dir) catch @panic(download_dir);
     std.debug.print("download_dir: {s}\n", .{download_dir});
 
     // Replace "..." with "---" because GitHub releases has very weird restrictions on file names.
@@ -480,23 +479,23 @@ fn downloadProtoc(
     // Download protoc
     const zip_target_file = try std.fs.path.join(allocator, &.{ download_dir, "protoc.zip" });
     defer allocator.free(zip_target_file);
-    downloadFile(allocator, zip_target_file, download_url.?) catch @panic(zip_target_file);
+    downloadFile(io, allocator, zip_target_file, download_url.?) catch @panic(zip_target_file);
 
     // Decompress the .zip file
-    unzipFile(allocator, zip_target_file, target_cache_dir) catch @panic(zip_target_file);
+    unzipFile(io, zip_target_file, target_cache_dir) catch @panic(zip_target_file);
 
-    try std.fs.deleteTreeAbsolute(download_dir);
+    try std.Io.Dir.deleteTree(std.Io.Dir.cwd(), io, download_dir);
 }
 
-fn dirExists(path: []const u8) bool {
-    var dir = std.fs.openDirAbsolute(path, .{}) catch return false;
-    dir.close();
+fn dirExists(io: std.Io, path: []const u8) bool {
+    var dir = std.Io.Dir.openDirAbsolute(io, path, .{}) catch return false;
+    dir.close(io);
     return true;
 }
 
-fn fileExists(path: []const u8) bool {
-    var file = std.fs.openFileAbsolute(path, .{}) catch return false;
-    file.close();
+fn fileExists(io: std.Io, path: []const u8) bool {
+    var file = std.Io.Dir.openFileAbsolute(io, path, .{}) catch return false;
+    file.close(io);
     return true;
 }
 
@@ -510,43 +509,47 @@ fn isEnvVarTruthy(allocator: std.mem.Allocator, name: []const u8) bool {
     }
 }
 
-fn downloadFile(allocator: std.mem.Allocator, target_file: []const u8, url: []const u8) !void {
+fn downloadFile(io: std.Io, allocator: std.mem.Allocator, target_file: []const u8, url: []const u8) !void {
+    _ = allocator; // autofix
     std.debug.print("downloading {s}..\n", .{url});
 
     // Some Windows users experience `SSL certificate problem: unable to get local issuer certificate`
     // so we give them the option to disable SSL if they desire / don't want to debug the issue.
-    var child = if (isEnvVarTruthy(allocator, "CURL_INSECURE"))
-        std.process.Child.init(&.{ "curl", "--insecure", "-L", "-o", target_file, url }, allocator)
-    else
-        std.process.Child.init(&.{ "curl", "-L", "-o", target_file, url }, allocator);
-    child.cwd = sdkPath("/");
-    child.stderr = std.io.getStdErr();
-    child.stdout = std.io.getStdOut();
-    _ = try child.spawnAndWait();
+
+    var child = try std.process.spawn(io, .{
+        .argv = &.{ "curl", "-L", "-o", target_file, url },
+        .cwd = .{ .path = sdkPath("/") },
+        .stderr = .inherit,
+        .stdout = .inherit,
+    });
+
+    const res = try child.wait(io);
+    if (res != .exited or res.exited != 0) {
+        return error.DownloadFailed;
+    }
 }
 
-fn unzipFile(allocator: std.mem.Allocator, file: []const u8, target_directory: []const u8) !void {
-    var child = switch (builtin.os.tag) {
-        .windows => std.process.Child.init(
-            &.{ "powershell", "-Command", "Microsoft.PowerShell.Archive\\Expand-Archive -Force -Path", file, "-DestinationPath", target_directory },
-            allocator,
-        ),
-        else => std.process.Child.init(
-            &.{ "unzip", "-o", file, "-d", target_directory },
-            allocator,
-        ),
+fn unzipFile(io: std.Io, file: []const u8, target_directory: []const u8) !void {
+    const args: []const []const u8 = switch (builtin.os.tag) {
+        .windows => &.{ "powershell", "-Command", "Microsoft.PowerShell.Archive\\Expand-Archive -Force -Path", file, "-DestinationPath", target_directory },
+        else => &.{ "unzip", "-o", file, "-d", target_directory },
     };
-    child.cwd = sdkPath("/");
-    child.stderr = std.io.getStdErr();
-    child.stdout = std.io.getStdOut();
-    _ = try child.spawnAndWait();
+    var child = try std.process.spawn(io, .{
+        .cwd = .{ .path = sdkPath("/") },
+        .stderr = .inherit,
+        .stdout = .inherit,
+        .argv = args,
+    });
+    const term = try child.wait(io);
+    if (term != .exited or term.exited != 0) {
+        return error.UnzipFailed;
+    }
 }
 
-fn ensureCanDownloadFiles(allocator: std.mem.Allocator) void {
-    const result = std.process.Child.run(.{
-        .allocator = allocator,
+fn ensureCanDownloadFiles(io: std.Io, allocator: std.mem.Allocator) void {
+    const result = std.process.run(allocator, io, .{
         .argv = &.{ "curl", "--version" },
-        .cwd = sdkPath("/"),
+        .cwd = .{ .path = sdkPath("/") },
     }) catch { // e.g. FileNotFound
         std.log.err("zig-protobuf: error: 'curl --version' failed. Is curl not installed?", .{});
         std.process.exit(1);
@@ -555,29 +558,29 @@ fn ensureCanDownloadFiles(allocator: std.mem.Allocator) void {
         allocator.free(result.stderr);
         allocator.free(result.stdout);
     }
-    if (result.term.Exited != 0) {
+    if (result.term.exited != 0) {
         std.log.err("zig-protobuf: error: 'curl --version' failed. Is curl not installed?", .{});
         std.process.exit(1);
     }
 }
 
-fn ensureCanUnzipFiles(allocator: std.mem.Allocator) void {
+fn ensureCanUnzipFiles(io: std.Io, allocator: std.mem.Allocator) void {
     switch (builtin.os.tag) {
         .windows => {},
         else => {
-            const result = std.process.Child.run(.{
-                .allocator = allocator,
+            const result = std.process.run(allocator, io, .{
                 .argv = &.{"unzip"},
-                .cwd = sdkPath("/"),
-            }) catch { // e.g. FileNotFound
+                .cwd = .{ .path = sdkPath("/") },
+            }) catch {
                 std.log.err("zig-protobuf: error: 'unzip' failed. Is unzip not installed?", .{});
                 std.process.exit(1);
             };
+
             defer {
                 allocator.free(result.stderr);
                 allocator.free(result.stdout);
             }
-            if (result.term.Exited != 0) {
+            if (result.term.exited != 0) {
                 std.log.err("zig-protobuf: error: 'unzip' failed. Is unzip not installed?", .{});
                 std.process.exit(1);
             }
