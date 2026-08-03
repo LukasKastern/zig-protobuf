@@ -115,7 +115,7 @@ const GenerationContext = struct {
                 \\ ///! package {s}
                 \\const std = @import("std");
                 \\const Allocator = std.mem.Allocator;
-                \\const ArrayList = std.ArrayListUnmanaged;
+                \\const ArrayList = std.ArrayList;
                 \\
                 \\const protobuf = @import("protobuf");
                 \\const ManagedString = protobuf.ManagedString;
@@ -358,7 +358,7 @@ const GenerationContext = struct {
         nullable: bool,
     ) !?[]const u8 {
         const repeated = isRepeated(field);
-        if (repeated) return ".{}";
+        if (repeated) return ".empty";
 
         const is_proto3 = is_proto3_file(file);
 

@@ -349,7 +349,7 @@ fn append_varint(allocator: std.mem.Allocator, pb: *std.ArrayList(u8), value: an
 
 /// Appends a fixed size int to the pb buffer.
 /// Takes care of casting any signed/float value to an appropriate unsigned type
-fn append_fixed(pb: *std.ArrayList(u8), value: anytype) Allocator.Error!void {
+fn append_fixed(allocator: std.mem.Allocator, pb: *std.ArrayList(u8), value: anytype) Allocator.Error!void {
     const bitsize = @bitSizeOf(@TypeOf(value));
 
     var as_unsigned_int = switch (@TypeOf(value)) {
@@ -361,7 +361,7 @@ fn append_fixed(pb: *std.ArrayList(u8), value: anytype) Allocator.Error!void {
     var index: usize = 0;
 
     while (index < (bitsize / 8)) : (index += 1) {
-        try pb.append(@as(u8, @truncate(as_unsigned_int)));
+        try pb.append(allocator, @as(u8, @truncate(as_unsigned_int)));
         as_unsigned_int = as_unsigned_int >> 8;
     }
 }
@@ -383,20 +383,20 @@ fn append_const_bytes(allocator: std.mem.Allocator, pb: *std.ArrayList(u8), valu
 }
 
 /// simple appending of a list of fixed-size data.
-fn append_packed_list_of_fixed(pb: *std.ArrayList(u8), comptime field: FieldDescriptor, value_list: anytype) Allocator.Error!void {
+fn append_packed_list_of_fixed(allocator: std.mem.Allocator, pb: *std.ArrayList(u8), comptime field: FieldDescriptor, value_list: anytype) Allocator.Error!void {
     if (value_list.items.len > 0) {
         // first append the tag for the field descriptor
-        try append_tag(pb, field);
+        try append_tag(allocator, pb, field);
 
         // then write elements
         const len_index = pb.items.len;
         for (value_list.items) |item| {
-            try append_fixed(pb, item);
+            try append_fixed(allocator, pb, item);
         }
 
         // and finally prepend the LEN size in the len_index position
         const size_encoded = pb.items.len - len_index;
-        try insert_raw_varint(pb, size_encoded, len_index);
+        try insert_raw_varint(allocator, pb, size_encoded, len_index);
     }
 }
 
