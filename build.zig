@@ -203,7 +203,8 @@ pub const RunProtocStep = struct {
 
             // include directories
             for (self.include_directories) |it| {
-                try argv.append(b.allocator, try std.mem.concat(b.allocator, u8, &.{ "-I", it }));
+                const real_path = try source_file.owner.build_root.handle.realPathFileAlloc(b.graph.io, it, b.allocator);
+                try argv.append(b.allocator, try std.mem.concat(b.allocator, u8, &.{ "-I", real_path }));
             }
 
             const real_path = try source_file.owner.build_root.handle.realPathFileAlloc(b.graph.io, source_file.sub_path, b.allocator);
