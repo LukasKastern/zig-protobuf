@@ -9,6 +9,8 @@ const LazyPath = std.Build.LazyPath;
 const PROTOC_VERSION = "23.4";
 
 pub fn build(b: *std.Build) !void {
+    // Download protoc during configure
+    _ = try ensureProtocBinaryDownloaded(b.graph.io, std.heap.page_allocator, PROTOC_VERSION);
 
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
