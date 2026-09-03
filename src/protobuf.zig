@@ -1411,10 +1411,10 @@ pub fn pb_json_decode(
 
 pub fn pb_json_encode(
     data: anytype,
-    options: json.StringifyOptions,
+    options: json.Stringify.Options,
     allocator: Allocator,
 ) ![]u8 {
-    return try json.stringifyAlloc(allocator, data, options);
+    return try json.Stringify.valueAlloc(allocator, data, options);
 }
 
 fn to_camel_case(not_camel_cased_string: []const u8) []const u8 {
