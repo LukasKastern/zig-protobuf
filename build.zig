@@ -49,7 +49,7 @@ pub fn build(b: *std.Build) !void {
         .root_module = b.createModule(.{
             .optimize = .Debug,
             .root_source_file = b.path("src/merge_proto.zig"),
-            .target = target,
+            .target = b.graph.host, // always build for native
         }),
     });
     b.installArtifact(merge_proto);
@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) !void {
         .name = "protoc-gen-zig",
         .root_module = b.createModule(.{
             .root_source_file = b.path("bootstrapped-generator/main.zig"),
-            .target = target,
+            .target = b.graph.host, // always build for native
             .optimize = optimize,
         }),
     });
@@ -241,6 +241,7 @@ pub fn runProtoc(b: *std.Build, protoc_dep: *std.Build.Dependency, options: *con
     // Declare protobuf - always using native target and debug for compilation speed
     const protobuf = protoc_dep.builder.dependency("protobuf", .{
         .optimize = .Debug,
+        .target = b.graph.host,
     });
 
     // Grab protoc
