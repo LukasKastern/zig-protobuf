@@ -6,6 +6,7 @@ pub fn main(init: std.process.Init) !void {
     _ = args.next();
 
     const input_dir = args.next() orelse return error.InputDirectory;
+    const zig_exe = args.next() orelse return error.ZigExeMissing;
     const output_dir_path = args.next() orelse return error.OutputDirectoryMissing;
 
     var cwd = std.Io.Dir.cwd();
@@ -117,4 +118,14 @@ pub fn main(init: std.process.Init) !void {
         .sub_path = "api.zig",
         .data = content.items,
     });
+
+    // Fmt output
+    {
+        const res = try std.process.run(init.arena.allocator(), init.io, .{
+            .argv = &.{ zig_exe, "fmt", output_dir_path },
+        });
+        if (res.term != .exited or res.term.exited != 0) {
+            return error.FailedToZigFmt;
+        }
+    }
 }

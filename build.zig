@@ -283,6 +283,7 @@ pub fn runProtoc(b: *std.Build, protoc_dep: *std.Build.Dependency, options: *con
     // Merge the generated packages into a single file
     const run_merge = b.addRunArtifact(merge_proto);
     run_merge.addDirectoryArg(output_dir);
+    run_merge.addArg(b.graph.zig_exe);
     const merged_dir = run_merge.addOutputDirectoryArg("proto_out");
 
     return merged_dir.join(b.allocator, "api.zig") catch unreachable;
