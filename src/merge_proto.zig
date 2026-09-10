@@ -55,7 +55,17 @@ pub fn main(init: std.process.Init) !void {
         }
     }
 
-    const child_dir = try std.Io.Dir.cwd().openDir(init.io, input_dir, .{ .iterate = true });
+    // Fmt output
+    {
+        const res = try std.process.run(init.arena.allocator(), init.io, .{
+            .argv = &.{ zig_exe, "fmt", output_dir_path },
+        });
+        if (res.term != .exited or res.term.exited != 0) {
+            return error.FailedToZigFmt;
+        }
+    }
+
+    const child_dir = try std.Io.Dir.cwd().openDir(init.io, output_dir_path, .{ .iterate = true });
     var content: std.ArrayList(u8) = .empty;
 
     const DirStackEntry = struct {
@@ -118,14 +128,4 @@ pub fn main(init: std.process.Init) !void {
         .sub_path = "api.zig",
         .data = content.items,
     });
-
-    // Fmt output
-    {
-        const res = try std.process.run(init.arena.allocator(), init.io, .{
-            .argv = &.{ zig_exe, "fmt", output_dir_path },
-        });
-        if (res.term != .exited or res.term.exited != 0) {
-            return error.FailedToZigFmt;
-        }
-    }
 }
