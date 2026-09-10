@@ -7,10 +7,9 @@
     .minimum_zig_version = "0.16.0",
 
     .dependencies = .{
-        .Protobuf = .{
-            .path = "../protobuf",
-            // .url = "git+https://github.com/LukasKastern/protobuf.git#6b5155f2c01f10fd253bc1c620f24b0eee418e88",
-            // .hash = "Protobuf-36.1.0-lZQ1Pj0fAACugm2qZg_PTyVCnt5lJWjE51oz3eYfP9qv",
+        .protobuf = .{
+            .url = "git+https://github.com/LukasKastern/protobuf.git#d2924ad781917f43a5f059a64ca23b5d0008189d",
+            .hash = "protobuf-36.1.0-1EULGdMeAAB4Dz_iZMWpbzrJqeR1Tg_4a6MCNT0RpNcU",
         },
     },
     .paths = .{

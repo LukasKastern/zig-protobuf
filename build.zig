@@ -5,10 +5,8 @@ const Step = std.Build.Step;
 const fs = std.fs;
 const mem = std.mem;
 const LazyPath = std.Build.LazyPath;
-const build_util = @import("build_util.zig");
-pub const RunProtocStep = build_util.RunProtocStep;
 
-const PROTOC_VERSION = build_util.PROTOC_VERSION;
+const Self = @This();
 
 pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
@@ -46,20 +44,30 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    const make_file = b.addExecutable(.{
-        .name = "make_file",
+    const merge_proto = b.addExecutable(.{
+        .name = "merge_proto",
         .root_module = b.createModule(.{
             .optimize = .Debug,
-            .root_source_file = b.path("src/make_dir.zig"),
+            .root_source_file = b.path("src/merge_proto.zig"),
             .target = target,
         }),
     });
-    b.installArtifact(make_file);
+    b.installArtifact(merge_proto);
 
-    const exe = build_util.buildGenerator(b, .{
-        .target = target,
-        .optimize = optimize,
+    const exe = b.addExecutable(.{
+        .name = "protoc-gen-zig",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("bootstrapped-generator/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
+
+    const proto_module = b.addModule("protobuf", .{
+        .root_source_file = b.path("src/protobuf.zig"),
+    });
+
+    exe.root_module.addImport("protobuf", proto_module);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -160,18 +168,17 @@ pub fn build(b: *std.Build) !void {
         }),
     };
 
-    const convertStep = RunProtocStep.createWithGenerator(b, exe, .{
-        .destination_directory = b.path("tests/.generated"),
+    var dep = std.Build.Dependency{ .builder = b };
+    const convertStep = runProtoc(b, &dep, &.{
         .source_files = &.{b.path("tests/protos_for_test/generated_in_ci.proto")},
         .include_directories = &.{b.path("tests/protos_for_test")},
     });
 
-    const convertStep2 = RunProtocStep.createWithGenerator(b, exe, .{
-        .destination_directory = b.path("tests/generated"),
+    const convertStep2 = runProtoc(b, &dep, &.{
         .source_files = &.{
             b.path("tests/protos_for_test/all.proto"),
             b.path("tests/protos_for_test/complex_type.proto"),
-            b.path("tests/protos_for_test/onnx.proto"),
+            // b.path("tests/protos_for_test/onnx.proto"),
             b.path("tests/protos_for_test/test_service.proto"),
             b.path("tests/protos_for_test/whitespace-in-name.proto"),
         },
@@ -189,49 +196,58 @@ pub fn build(b: *std.Build) !void {
         // This will evaluate the `test` step rather than the default, which is "install".
         const run_main_tests = b.addRunArtifact(test_item);
 
-        test_item.step.dependOn(&convertStep.step);
-        test_item.step.dependOn(&convertStep2.step);
+        test_item.step.dependOn(convertStep.generated.file.step);
+        test_item.step.dependOn(convertStep2.generated.file.step);
 
         test_step.dependOn(&run_main_tests.step);
     }
 
-    // const include = if (try build_util.getProtocDependency(b)) |protoc| protoc.path("include") else b.path("");
+    const protobuf_dep = b.dependency("protobuf", .{ .optimize = .Debug });
 
-    // const bootstrap = b.step("bootstrap", "run the generator over its own sources");
+    const include = try protobuf_dep.namedLazyPath("protobuf_source").join(b.allocator, "src");
 
-    // const bootstrapConversion = RunProtocStep.createWithGenerator(b, exe, .{
-    //     .destination_directory = b.path("bootstrapped-generator"),
-    //     .source_files = &.{
-    //         include.path(b, "google/protobuf/compiler/plugin.proto"),
-    //         include.path(b, "google/protobuf/descriptor.proto"),
-    //     },
-    //     .include_directories = &.{},
-    // });
+    const bootstrap = b.step("bootstrap", "run the generator over its own sources");
 
-    // bootstrap.dependOn(&bootstrapConversion.step);
+    const bootstrap_src = runProtoc(b, &dep, &.{
+        .source_files = &.{
+            try include.join(b.allocator, "google/protobuf/compiler/plugin.proto"),
+            try include.join(b.allocator, "google/protobuf/descriptor.proto"),
+        },
+        .proto_path = include,
+    });
+    const bootstrap_lib = b.addLibrary(.{
+        .name = "bootstrap",
+        .root_module = b.createModule(.{
+            .root_source_file = bootstrap_src,
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const install_bootstrap = b.addInstallArtifact(bootstrap_lib, .{});
+    bootstrap.dependOn(&install_bootstrap.step);
 }
 
 pub const RunProtocSettings = struct {
-    source_file: std.Build.LazyPath,
-    include_directories: []const std.Build.LazyPath,
-    prefix: []const u8,
+    // List of source files
+    source_files: []const std.Build.LazyPath,
+    include_directories: []const std.Build.LazyPath = &.{},
+
+    // Proto path override - by default the directory name of the first source file is used
+    proto_path: ?std.Build.LazyPath = null,
 };
 
 // Create a run step that converts the given protoc input into a zig source file
 pub fn runProtoc(b: *std.Build, protoc_dep: *std.Build.Dependency, options: *const RunProtocSettings) std.Build.LazyPath {
     // Declare protobuf - always using native target and debug for compilation speed
-    const protobuf = protoc_dep.builder.dependency("Protobuf", .{
+    const protobuf = protoc_dep.builder.dependency("protobuf", .{
         .optimize = .Debug,
     });
 
-    const make_file = protoc_dep.artifact("make_file");
-    const make_step = b.addRunArtifact(make_file);
-
-    const output_dir = make_step.addOutputDirectoryArg(options.prefix);
-    const api_file = output_dir.join(b.allocator, "api.zig") catch unreachable;
-
     // Grab protoc
     const protoc = protobuf.artifact("protoc");
+
+    // Grab merge proto
+    const merge_proto = protoc_dep.artifact("merge_proto");
 
     const run_protoc = b.addRunArtifact(protoc);
 
@@ -240,11 +256,12 @@ pub fn runProtoc(b: *std.Build, protoc_dep: *std.Build.Dependency, options: *con
 
     // Declare output
     run_protoc.addArg("--zig_out");
-    // const proto_out = run_protoc.addOutputFileArg("api.zig");
 
-    // const write_api = b.addWriteFiles();
-    // const api = write_api.add("api.zig", &.{});
-    run_protoc.addFileArg(api_file);
+    const output_dir = run_protoc.addOutputDirectoryArg("proto_out");
+
+    // Include default src
+    const google_include = protobuf.namedLazyPath("protobuf_source").join(b.allocator, "src") catch @panic("OOM");
+    run_protoc.addPrefixedDirectoryArg("-I", google_include);
 
     // Declare input directories
     for (options.include_directories) |include| {
@@ -252,10 +269,21 @@ pub fn runProtoc(b: *std.Build, protoc_dep: *std.Build.Dependency, options: *con
     }
 
     // Declare source file directory
-    run_protoc.addPrefixedDirectoryArg("--proto_path=", options.source_file.dirname());
+    std.debug.assert(options.source_files.len > 0);
+
+    const proto_path = options.proto_path orelse options.source_files[0].dirname();
+    run_protoc.setCwd(proto_path);
+    run_protoc.addPrefixedDirectoryArg("--proto_path=", proto_path);
 
     // Declare source file
-    run_protoc.addFileArg(options.source_file);
+    for (options.source_files) |file| {
+        run_protoc.addFileArg(file);
+    }
 
-    return api_file;
+    // Merge the generated packages into a single file
+    const run_merge = b.addRunArtifact(merge_proto);
+    run_merge.addDirectoryArg(output_dir);
+    const merged_dir = run_merge.addOutputDirectoryArg("proto_out");
+
+    return merged_dir.join(b.allocator, "api.zig") catch unreachable;
 }
