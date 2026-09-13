@@ -1,5 +1,5 @@
 const std = @import("std");
-const tests = @import("./.generated/generated_in_ci.pb.zig");
+const tests = @import("API");
 const testing = std.testing;
 
 test "Varints" {

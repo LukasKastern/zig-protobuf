@@ -159,7 +159,7 @@ pub const Duration = struct {
             const negative = sec_str.len > 0 and sec_str[0] == '-';
             seconds = std.fmt.parseInt(i64, sec_str, 10) catch return error.UnexpectedToken;
             if (frac_str.len == 0 or frac_str.len > 9) return error.UnexpectedToken;
-            var frac_buf: [9]u8 = [_]u8{'0'} ** 9;
+            var frac_buf: [9]u8 = @splat('0');
             @memcpy(frac_buf[0..frac_str.len], frac_str);
             const frac_val = std.fmt.parseInt(u32, &frac_buf, 10) catch return error.UnexpectedToken;
             nanos = @intCast(frac_val);
@@ -350,7 +350,7 @@ pub const NullValue = enum(i32) {
                     else => return error.UnexpectedToken,
                 };
                 const val = std.fmt.parseInt(i32, str, 10) catch return error.UnexpectedToken;
-                return @enumFromInt(val);
+                return @fromBackingInt(@intCast(val));
             },
             .string => {
                 const tok = try source.nextAllocMax(allocator, .alloc_if_needed, options.max_value_len.?);
@@ -671,7 +671,7 @@ pub const Timestamp = struct {
             while (pos < str.len and str[pos] >= '0' and str[pos] <= '9') pos += 1;
             const frac_len = pos - frac_start;
             if (frac_len == 0 or frac_len > 9) return error.UnexpectedToken;
-            var frac_buf: [9]u8 = [_]u8{'0'} ** 9;
+            var frac_buf: [9]u8 = @splat('0');
             @memcpy(frac_buf[0..frac_len], str[frac_start..pos]);
             nanos = @intCast(std.fmt.parseInt(u32, &frac_buf, 10) catch return error.UnexpectedToken);
         }

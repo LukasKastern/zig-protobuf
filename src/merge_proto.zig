@@ -75,6 +75,8 @@ pub fn main(init: std.process.Init) !void {
     var dir_stack: std.ArrayList(DirStackEntry) = .empty;
     try dir_stack.append(init.arena.allocator(), .{ .path = "", .entry = child_dir });
 
+    var exported_types: std.StringArrayHashMapUnmanaged(void) = .empty;
+
     // Find exports inside the generated proto files
     var exports: std.ArrayList([]const u8) = .empty;
     while (dir_stack.items.len > 0) {
@@ -98,8 +100,15 @@ pub fn main(init: std.process.Init) !void {
                         };
 
                         const type_name = line[export_prefix.len .. export_prefix.len + end];
+
+                        if (exported_types.get(type_name) != null) {
+                            continue;
+                        }
+
                         const export_line = try std.fmt.allocPrint(init.arena.allocator(), "pub const {s} = @import(\"{s}{s}\").{s};", .{ type_name, next_child.path, next.name, type_name });
                         try exports.append(init.arena.allocator(), export_line);
+
+                        try exported_types.put(init.arena.allocator(), type_name, {});
                     }
                 },
                 .directory => {

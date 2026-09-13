@@ -63,11 +63,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
 
-    const proto_module = b.addModule("protobuf", .{
-        .root_source_file = b.path("src/protobuf.zig"),
-    });
-
-    exe.root_module.addImport("protobuf", proto_module);
+    exe.root_module.addImport("protobuf", module);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -77,7 +73,7 @@ pub fn build(b: *std.Build) !void {
     const test_step = b.step("test", "Run library tests");
 
     const tests = [_]*std.Build.Step.Compile{
-        b.addTest(.{ .name = "protobuf", .root_module = module }),
+        // b.addTest(.{ .name = "protobuf", .root_module = module }),
         b.addTest(.{
             .name = "bootstrap",
             .root_module = b.createModule(.{
@@ -185,20 +181,33 @@ pub fn build(b: *std.Build) !void {
         .include_directories = &.{b.path("tests/protos_for_test")},
     });
 
+    const convert_one_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .root_source_file = convertStep,
+    });
+    convert_one_mod.addImport("protobuf", module);
+
+    const convert_two_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .root_source_file = convertStep2,
+    });
+    convert_two_mod.addImport("protobuf", module);
+
     for (tests) |test_item| {
         if (!std.mem.eql(u8, "protobuf", test_item.name)) {
             test_item.root_module.addImport("protobuf", module);
         }
         test_item.root_module.addImport("protobuf", module);
 
+        test_item.root_module.addImport("API", convert_one_mod);
+        test_item.root_module.addImport("API_Two", convert_one_mod);
+
         // This creates a build step. It will be visible in the `zig build --help` menu,
         // and can be selected like this: `zig build test`
         // This will evaluate the `test` step rather than the default, which is "install".
         const run_main_tests = b.addRunArtifact(test_item);
-
-        test_item.step.dependOn(convertStep.generated.file.step);
-        test_item.step.dependOn(convertStep2.generated.file.step);
-
         test_step.dependOn(&run_main_tests.step);
     }
 
