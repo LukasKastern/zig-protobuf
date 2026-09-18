@@ -234,23 +234,32 @@ pub const RunProtocSettings = struct {
 
     // Proto path override - by default the directory name of the first source file is used
     proto_path: ?std.Build.LazyPath = null,
+
+    // Use system protoc instead of building it ourselves
+    use_system_protoc: bool = false,
 };
 
 // Create a run step that converts the given protoc input into a zig source file
 pub fn runProtoc(b: *std.Build, protoc_dep: *std.Build.Dependency, options: *const RunProtocSettings) std.Build.LazyPath {
+
+    // Grab merge proto
+    const merge_proto = protoc_dep.artifact("merge_proto");
+
     // Declare protobuf - always using native target and debug for compilation speed
     const protobuf = protoc_dep.builder.dependency("protobuf", .{
         .optimize = .Debug,
         .target = b.graph.host,
     });
 
-    // Grab protoc
-    const protoc = protobuf.artifact("protoc");
-
-    // Grab merge proto
-    const merge_proto = protoc_dep.artifact("merge_proto");
-
-    const run_protoc = b.addRunArtifact(protoc);
+    const run_protoc = blk: {
+        if (options.use_system_protoc) {
+            break :blk b.addSystemCommand(&.{"protoc"});
+        } else {
+            // Grab protoc
+            const protoc = protobuf.artifact("protoc");
+            break :blk b.addRunArtifact(protoc);
+        }
+    };
 
     // Declare plugin
     run_protoc.addPrefixedArtifactArg("--plugin=protoc-gen-zig=", protoc_dep.artifact("protoc-gen-zig"));
