@@ -8,9 +8,8 @@
 
     .dependencies = .{
         .protobuf = .{
-            // .url = "git+https://github.com/LukasKastern/protobuf.git#51917b5a781fd1ca24901d944fccf872467e692e",
-            // .hash = "protobuf-36.1.0-1EULGT0fAACW1LfOZ4piv2SIkCWzBQgVBEKJAivdFfm-",
-            .path = "../protobuf",
+            .url = "git+https://github.com/LukasKastern/protobuf.git#5adcfe75940780e2d3eb4212e809e8648bc2af2a",
+            .hash = "protobuf-36.1.0-1EULGdceAACbWud_CakUZGx7zs7VOOuC-SkcIL0Js71o",
         },
     },
     .paths = .{
