@@ -779,7 +779,7 @@ fn dupeField(
                                         Original,
                                         @field(std.meta.FieldEnum(Original), field_name),
                                     );
-                                    if (comptime field_info.defaultValue()) |default_opt| {
+                                    if (comptime field_info.attrs.defaultValue(field_info.type)) |default_opt| {
                                         if (comptime default_opt) |default| {
                                             if (default.ptr == val.ptr) {
                                                 return default;
