@@ -11,8 +11,11 @@ pub fn main(init: std.process.Init) !void {
 
     var cwd = std.Io.Dir.cwd();
 
+    // Delete output dir
+    cwd.deleteTree(init.io, output_dir_path) catch {};
+
     // Open output dir
-    var output_dir = cwd.openDir(init.io, output_dir_path, .{ .access_sub_paths = true }) catch |e| {
+    var output_dir = cwd.createDirPathOpen(init.io, output_dir_path, .{ .open_options = .{ .access_sub_paths = true } }) catch |e| {
         std.log.err("output dir {s} not found", .{output_dir_path});
         return e;
     };
